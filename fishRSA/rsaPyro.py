@@ -14,7 +14,7 @@ import pyro.poutine as poutine
 from pyro.infer import SVI, Trace_ELBO
 from pyro.optim import Adam
 
-from search_inference import factor, HashingMarginal, memoize, Search
+from search_inference import factor, HashingMarginal, memoize, Search, Marginal
 
 pyro.enable_validation(True)
 pyro.distributions.enable_validation(False)
@@ -26,8 +26,8 @@ smoke_test = 'CI' in os.environ
 TODO incorporate depth argument. Will probably need to rename marginals to reflect the depth.
 See if I can call the functions multiple times with same/different faces. May need to rename marginals to reflect parameters.
 """
-def Marginal(fn):
-    return memoize(lambda *args: HashingMarginal(Search(fn).run(*args)))
+# def Marginal(fn):
+#     return memoize(lambda *args: HashingMarginal(Search(fn).run(*args)))
 
 
 def meaning(utterance, face):

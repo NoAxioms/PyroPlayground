@@ -2,6 +2,9 @@
 Inference algorithms and utilities used in the RSA example models.
 
 Adapted from: http://dippl.org/chapters/03-enumeration.html
+
+Taken from pyro github. Added Marginal function from pyro's hyperbole.py
+
 """
 
 from __future__ import absolute_import, division, print_function
@@ -24,6 +27,9 @@ else:
     import functools32 as functools
 
 
+def Marginal(fn):
+    return memoize(lambda *args: HashingMarginal(Search(fn).run(*args)))
+    
 def memoize(fn=None, **kwargs):
     if fn is None:
         return lambda _fn: memoize(_fn, **kwargs)
