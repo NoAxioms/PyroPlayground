@@ -1,3 +1,4 @@
+#Modified version of pyro's hyperbole.py, which is taken from https://gscontras.github.io/probLang/chapters/03-nonliteral.html
 import os
 import json
 
@@ -21,7 +22,10 @@ pyro.set_rng_seed(0)
 # Enable smoke test - run the notebook cells on CI.
 smoke_test = 'CI' in os.environ
 
-
+"""
+TODO incorporate depth argument. Will probably need to rename marginals to reflect the depth.
+See if I can call the functions multiple times with same/different faces. May need to rename marginals to reflect parameters.
+"""
 def Marginal(fn):
     return memoize(lambda *args: HashingMarginal(Search(fn).run(*args)))
 
@@ -52,7 +56,7 @@ def literal_listener(utterance, faces):
 
 
 @Marginal
-def speaker(face, faces, utterance_candidates, depth=None):
+def speaker(face, faces, utterance_candidates, depth=0):
 	"""
 	return: index of utterance
 	"""
@@ -63,32 +67,41 @@ def speaker(face, faces, utterance_candidates, depth=None):
 		pyro.sample('listener', literal_marginal, obs=face)
 	return utterance
 
+def listener(utterance, utterance_candidates, faces, depth=1):
+	if depth == 0:
+		return literal_listener(utterance, faces)
+	else:
+		return pragmatic_listener(utterance, utterance_candidates, faces, depth)
 
 @Marginal
-def pragmatic_listener(utterance, utterance_candidates, faces, depth=None):
+def pragmatic_listener(utterance, utterance_candidates, faces, depth=1):
 	face = face_prior(faces)
 	speaker_marginal = speaker(face, faces, utterance_candidates)
 	pyro.sample("speaker", speaker_marginal, obs=utterance)
 	return face
 
 
-def main():
+def test_independence():
 	with open("./standard_faces.json", 'r') as f:
 		standard_faces = json.load(f)
 		faces_classic = tuple(tuple(x.split(" "))
 		                      for x in standard_faces["faces_classic"])
 		faces_sym = tuple(x.split(" ") for x in standard_faces["faces_sym"])
+	utterances = ["glasses", "moustache", "face"]
+	for u in utterances:
+		run(faces_classic,u)
+
+
+def run(faces, utterance):
 	utterance_candidates = tuple(
-	    list(sorted(set((x for i in faces_classic for x in i)))))
-	utterance = "moustache"
-	for x in [utterance, utterance_candidates, faces_classic]:
-		print(type(x[0]))
+	    list(sorted(set((x for i in faces for x in i)))))
+
 	pragmatic_marginal = pragmatic_listener(
-	    utterance, utterance_candidates, faces_classic)
-	print(pragmatic_marginal)
+	    utterance, utterance_candidates, faces)
 	pd, pv = pragmatic_marginal._dist_and_values()
 	print([(s, pragmatic_marginal.log_prob(s).exp().item())
 		for s in pragmatic_marginal.enumerate_support()])
 
+
 if __name__ == "__main__":
-	main()
+	test_independence()
