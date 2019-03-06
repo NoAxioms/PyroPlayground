@@ -29,7 +29,7 @@ else:
 
 def Marginal(fn):
     return memoize(lambda *args: HashingMarginal(Search(fn).run(*args)))
-    
+
 def memoize(fn=None, **kwargs):
     if fn is None:
         return lambda _fn: memoize(_fn, **kwargs)
