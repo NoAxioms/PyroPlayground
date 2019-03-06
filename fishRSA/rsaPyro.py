@@ -62,7 +62,7 @@ def speaker(face, faces, utterance_candidates, depth=0):
 	"""
 	alpha = 1.
 	utterance = utterance_prior(utterance_candidates)
-	literal_marginal = literal_listener(utterance, faces)
+	literal_marginal = listener(utterance, utterance_candidates, faces, depth)
 	with poutine.scale(scale=torch.tensor(alpha)):
 		pyro.sample('listener', literal_marginal, obs=face)
 	return utterance
@@ -76,7 +76,7 @@ def listener(utterance, utterance_candidates, faces, depth=1):
 @Marginal
 def pragmatic_listener(utterance, utterance_candidates, faces, depth=1):
 	face = face_prior(faces)
-	speaker_marginal = speaker(face, faces, utterance_candidates)
+	speaker_marginal = speaker(face, faces, utterance_candidates, depth-1)
 	pyro.sample("speaker", speaker_marginal, obs=utterance)
 	return face
 
@@ -89,18 +89,18 @@ def test_independence():
 		faces_sym = tuple(x.split(" ") for x in standard_faces["faces_sym"])
 	utterances = ["glasses", "moustache", "face"]
 	for u in utterances:
-		run(faces_classic,u)
+		run(faces_classic,u, depth=10)
 
 
-def run(faces, utterance):
+def run(faces, utterance, depth=1):
 	utterance_candidates = tuple(
 	    list(sorted(set((x for i in faces for x in i)))))
 
-	pragmatic_marginal = pragmatic_listener(
-	    utterance, utterance_candidates, faces)
-	pd, pv = pragmatic_marginal._dist_and_values()
-	print([(s, pragmatic_marginal.log_prob(s).exp().item())
-		for s in pragmatic_marginal.enumerate_support()])
+	marginal = listener(
+	    utterance, utterance_candidates, faces, depth)
+	pd, pv = marginal._dist_and_values()
+	print([(s, marginal.log_prob(s).exp().item())
+		for s in marginal.enumerate_support()])
 
 
 if __name__ == "__main__":
