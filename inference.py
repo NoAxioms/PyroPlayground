@@ -1,0 +1,39 @@
+# import some dependencies
+import numpy as np
+import matplotlib.pyplot as plt
+
+import torch
+
+import pyro
+import pyro.infer
+import pyro.optim
+import pyro.distributions as dist
+
+torch.manual_seed(101);
+
+def scale(guess):
+	#Gaussian centered at guess
+	weight = pyro.sample("weight",dist.Normal(guess,1.0))
+	#Gaussian centered at weight
+	return pyro.sample("measurement",dist.Normal(weight,0.75))
+
+posterior = pyro.infer.Importance(scale,num_samples=100)
+guess = 8.5
+marginal=pyro.infer.EmpiricalMarginal(posterior.run(guess))
+print(marginal())
+plt.hist([marginal().item() for _ in range(100)], range(5,12))
+plt.title("P(measurement | guess)")
+plt.xlabel("weight")
+plt.ylabel("#") 
+plt.show()
+
+conditioned_scale = pyro.condition(
+	scale,data={"measurement":9.5})
+def deferred_condition_scale(measurement,*args,**kwargs):
+	return pyro.condition(scale,data={"measurement":measurement})(*args,**kwargs)
+
+def scale_obs(guess):
+	weight = pyro.sample("weight",dist.Normal(guess,1))
+	return pyro.sample("measurement",dist.Normal(weight,1.),obs=9.5)
+
+
