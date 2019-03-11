@@ -45,6 +45,12 @@ def get_transition_dist(state, action):
 def check_terminal(state, action):
 	return action != listen
 
+def to_categorical(d):
+	"""
+	Converts d to a categorical distribution. Currently inneficient, 
+	"""
+	pass
+
 def get_reward(state, action):
 	if (state.item() == left_tiger.item() and action.item() == go_left.item()) or (state.item() == right_tiger.item() and action.item() == go_right.item()):
 		return -1000.  #Tiger food
@@ -117,9 +123,11 @@ def q_value(belief, action, depth):
 		future_value, best_action = future_q_values.max(0)
 	return reward + discount * future_value
 
-def act(belief, depth=3):
-	values = torch.empty(actions.shape[0])
-	for a in actions: values[a] = q_value(belief,a,depth)
+def act(belief, depth=3, num_samples = 10):
+	values = torch.zeros(actions.shape[0])
+	for _ in range(num_samples):
+		for a in actions: values[a] += q_value(belief,a,depth)
+	values / num_samples
 	max_val, best_action = values.max(0)
 	return best_action
 
