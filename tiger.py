@@ -24,13 +24,13 @@ pyro.set_rng_seed(0)
 smoke_test = 'CI' in os.environ
 
 state_names = ['left', 'right']
-states = [left_tiger, right_tiger] = torch.arange(2,dtype=torch.int)
+states = [left_tiger, right_tiger] = torch.arange(2,dtype=torch.long)
 # agent_locations = tiger_locations + ['trapped', 'free']
 # State = collections.namedtuple("State",["tiger_location","agent_location"])
-observations_names = ["left", "right", "silence"]
-observations = [roar_left, roar_right, silence] = torch.arange(3,dtype=torch.int)
+observation_names = ["left", "right", "silence"]
+observations = [roar_left, roar_right, silence] = torch.arange(3,dtype=torch.long)
 action_names = ["go_left", "go_right", "listen"]
-actions =[go_left, go_right, listen] = torch.arange(3,dtype=torch.int)
+actions =[go_left, go_right, listen] = torch.arange(3,dtype=torch.long)
 initial_belief = dist.Bernoulli(0.5)
 roar_rate, roar_accuracy = .8, 1.0
 discount = 0.99
@@ -39,7 +39,7 @@ discount = 0.99
 
 def get_transition_dist(state, action):
 	probs = torch.zeros(states.shape[0])
-	probs[state.item()] = 1.
+	probs[int(state.item())] = 1.
 	return dist.Categorical(probs=probs)
 
 def check_terminal(state, action):
@@ -73,18 +73,21 @@ def sample_observation_from_belief(belief, action):
 	return pyro.sample('observation', obs_dist)
 
 def sample_state_bao(belief, action, observation):
-	state0 = pyro.sample("state0", belief).int()
+	state0 = pyro.sample("state0", belief).long()
 	state1 = pyro.sample('state1', get_transition_dist(state0,action))
 	o = pyro.sample('observation', get_observation_dist(state1,action), obs=observation)
 	return state1
 	
-def update_belief(belief, action, observation):
-	posterior = pyro.infer.Importance(sample_state_bao, num_samples=10)
-	return pyro.infer.EmpiricalMarginal(posterior.run(initial_belief,listen,observation))
-
+def update_belief(belief, action, observation, hashing = False):
+	if hashing:
+		return Marginal(sample_state_bao)(belief, listen, observation)
+	else:
+		posterior = pyro.infer.Importance(sample_state_bao, num_samples=10)
+		return pyro.infer.EmpiricalMarginal(posterior.run(belief,listen,observation))
 
 def test_update_belief():
-	b = update_belief(initial_belief, listen, roar_right)
+	b = update_belief(initial_belief, listen, roar_right, True)
+	# b = update_belief(b, listen, roar_right)
 	print(right_tiger)
 
 	for i in range(10):
@@ -114,6 +117,12 @@ def q_value(belief, action, depth):
 		future_value, best_action = future_q_values.max(0)
 	return reward + discount * future_value
 
+def act(belief, depth=3):
+	values = torch.empty(actions.shape[0])
+	for a in actions: values[a] = q_value(belief,a,depth)
+	max_val, best_action = values.max(0)
+	return best_action
+
 def q_value_test():
 	ql = q_value(initial_belief, listen, 2)
 	print(ql)
@@ -121,14 +130,38 @@ def q_value_test():
 	print(q)
 
 def main():
-	# start_state_id = pyro.sample("start_state_id",dist.Categorical(torch.ones([2])))
-	b = initial_belief
-	print("b: {}".format(b))
-	b1 = update_belief(b, 'listen', 'left')
-	print("b1: {}".format(b1))
-	s = b1()
-	print(s)
+	belief = initial_belief
+	state = pyro.sample("true_state_0", initial_belief).long()
+	# state = torch.tensor([1],dtype=torch.long)
+	state_history = [state]
+	action_history = []
+	observation_history = []
+	reward_history = []
+	total_reward = 0.
+	terminated = False
+	steps = 0
+	while not terminated and steps < 20:
+		steps += 1
+		action = act(belief)
+		action_history.append(action)
+		reward_history.append(get_reward(state, action))
+		if check_terminal(state, action):
+			terminated = True
+			break
+		state = pyro.sample("true_state_{}".format(steps), get_transition_dist(state, action))
+		observation = pyro.sample('observation_{}'.format(steps), get_observation_dist(state, action))
+		belief = update_belief(belief, action, observation)
+		state_history.append(state)
+		observation_history.append(observation)
+	for r in reversed(reward_history):
+		total_reward = discount * total_reward + r
+	print("total_reward: {}".format(total_reward))
+	print("state_history: {}".format([state_names[s] for s in state_history]))
+	print("action_history: {}".format([action_names[a] for a in action_history]))
+	print("observation_history: {}".format([observation_names[o] for o in observation_history]))
+
 
 if __name__ == "__main__":
 	# q_value_test()
-	test_update_belief()
+	# test_update_belief()
+	main()
