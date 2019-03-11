@@ -56,7 +56,7 @@ def get_reward(state, action):
 #Memoize
 def get_observation_dist(state, action):
 	if action == listen:
-		if state == left_tiger:
+		if state.item() == left_tiger.item():
 			left_prob = roar_accuracy * roar_rate
 			right_prob = (1.0 - roar_accuracy) * roar_rate
 		else:
@@ -74,24 +74,25 @@ def sample_observation_from_belief(belief, action):
 
 def sample_state_bao(belief, action, observation):
 	state0 = pyro.sample("state0", belief).int()
-	state1 = pyro.sample('state1', get_transition_dist(state0,action)).int()
+	state1 = pyro.sample('state1', get_transition_dist(state0,action))
 	o = pyro.sample('observation', get_observation_dist(state1,action), obs=observation)
 	return state1
 	
 def update_belief(belief, action, observation):
 	posterior = pyro.infer.Importance(sample_state_bao, num_samples=10)
-	return pyro.infer.EmpiricalMarginal(posterior.run(initial_belief,listen,left_tiger),sites=['state1'])
+	return pyro.infer.EmpiricalMarginal(posterior.run(initial_belief,listen,observation))
 
 
 def test_update_belief():
-	b = update_belief(initial_belief, listen, roar_left)
+	b = update_belief(initial_belief, listen, roar_right)
+	print(right_tiger)
+
 	for i in range(10):
 		s = b.sample()
 		print(s)
-		print(left_tiger)
-	b = update_belief(initial_belief, listen, roar_right)
-	for i in range(10):
-		assert pyro.sample('s_r_{}'.format(i), b) == right_tiger
+	# b = update_belief(initial_belief, listen, roar_right)
+	# for i in range(10):
+	# 	assert pyro.sample('s_r_{}'.format(i), b) == right_tiger
 
 
 # def bss(belief, depth):
@@ -129,4 +130,5 @@ def main():
 	print(s)
 
 if __name__ == "__main__":
-	q_value_test()
+	# q_value_test()
+	test_update_belief()
