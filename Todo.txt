@@ -1,0 +1,4 @@
+I want to be able to modify Tiger into a more interesting POMDP, so I must write belief update, q_value in a way that generalizes.
+Importance sampling and empirical marginal seem to scale poorly, so the long term method for belief update should be either bayes rule or SVI. Similar for q_values. For q_values, I need (only for some versions) to take expectations, which is easy if my belief, transition, and observations are categorical distributions. I need to either have these be categoricals from the start, convert them to categoricals, or find another way to take expectation.
+
+I should find a domain that benefits from pyro, perhaps where belief updating is hard.
