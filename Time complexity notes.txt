@@ -1,0 +1,6 @@
+Time complexity of neural net:
+
+Time complexity of Bayes Rule (calculate P(a), P(b | a), get P(a | b):
+Calculate P(B , A) #einsum (outer product?)
+Calculate P(B) #Hard Part. sum_a P(b | a) * b(a) for each b. 
+Divide

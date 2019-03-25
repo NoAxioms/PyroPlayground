@@ -1,6 +1,6 @@
 #Modified version of pyro's hyperbole.py, which is taken from https://gscontras.github.io/probLang/chapters/03-nonliteral.html
 import os
-import json
+import json, time
 
 import numpy as np
 import torch
@@ -16,6 +16,7 @@ from pyro.optim import Adam
 
 from search_inference import factor, HashingMarginal, memoize, Search, Marginal
 
+from rsaClass import RSA
 pyro.enable_validation(True)
 pyro.distributions.enable_validation(False)
 pyro.set_rng_seed(0)
@@ -92,16 +93,38 @@ def test_independence():
 		run(faces_classic,u, depth=10)
 
 
-def run(faces, utterance, depth=1):
+def run(faces, utterance, depth=1, silent=True):
 	utterance_candidates = tuple(
 	    list(sorted(set((x for i in faces for x in i)))))
 
 	marginal = listener(
 	    utterance, utterance_candidates, faces, depth)
 	pd, pv = marginal._dist_and_values()
-	print([(s, marginal.log_prob(s).exp().item())
-		for s in marginal.enumerate_support()])
+	if not silent:
+		print([(s, marginal.log_prob(s).exp().item())
+			for s in marginal.enumerate_support()])
 
+def speed_comparision(n=1000, depth=3):
+	"""
+	Pyro faster for <4 faces, slower for >4	
+	"""
+	faces = (('face'), ('face','moustache'), ('face', 'moustache', 'glasses'))
+	faces_ext = ('face', 'glasses'), ('face', 'hat'), ('face','mask')
+	utterance = 'moustache'
+	pyro_rsa_start = time.time()
+	for _ in range(n):
+		run(faces, utterance, depth = depth)
+	pyro_rsa_duration = time.time() - pyro_rsa_start
+	print('pyro_rsa_duration: ', pyro_rsa_duration)
+
+	rsa_classic = RSA(items=faces)
+	classic_start = time.time()
+	for _ in range(n):
+		rsa_classic.run(depth=depth)
+		rsa_classic.reset()
+	classic_duration = time.time() - classic_start
+	print('classic_duration: ', classic_duration)
 
 if __name__ == "__main__":
-	test_independence()
+	# test_independence()
+	speed_comparision()
